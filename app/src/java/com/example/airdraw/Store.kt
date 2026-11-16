@@ -6,7 +6,13 @@ import android.graphics.PointF
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class Symbol(val name: String, val samples: List<List<PointF>>)
+data class ActionDef(val type: String, val data: String, val label: String)
+
+data class Symbol(
+    val name: String,
+    val samples: List<List<PointF>>,
+    val action: ActionDef = ActionDef("none", "", "No action")
+)
 
 object Store {
     private lateinit var prefs: SharedPreferences
@@ -56,7 +62,17 @@ object Store {
                     }
                     samples.add(pts)
                 }
-                out.add(Symbol(o.getString("name"), samples))
+                val aj = o.optJSONObject("action")
+                val action = if (aj != null) {
+                    ActionDef(
+                        aj.optString("type", "none"),
+                        aj.optString("data", ""),
+                        aj.optString("label", "No action")
+                    )
+                } else {
+                    ActionDef("none", "", "No action")
+                }
+                out.add(Symbol(o.getString("name"), samples, action))
             }
         } catch (e: Exception) {
             return ArrayList()
@@ -81,6 +97,11 @@ object Store {
                 sj.put(pj)
             }
             o.put("samples", sj)
+            val aj = JSONObject()
+            aj.put("type", s.action.type)
+            aj.put("data", s.action.data)
+            aj.put("label", s.action.label)
+            o.put("action", aj)
             arr.put(o)
         }
         prefs.edit().putString("symbols", arr.toString()).apply()
@@ -88,10 +109,27 @@ object Store {
 
     fun saveSymbol(name: String, samples: List<List<PointF>>) {
         val list = ArrayList<Symbol>()
+        var keep = ActionDef("none", "", "No action")
         for (s in getSymbols()) {
-            if (s.name != name) list.add(s)
+            if (s.name == name) {
+                keep = s.action
+            } else {
+                list.add(s)
+            }
         }
-        list.add(Symbol(name, samples))
+        list.add(Symbol(name, samples, keep))
+        saveAll(list)
+    }
+
+    fun setAction(name: String, action: ActionDef) {
+        val list = ArrayList<Symbol>()
+        for (s in getSymbols()) {
+            if (s.name == name) {
+                list.add(Symbol(s.name, s.samples, action))
+            } else {
+                list.add(s)
+            }
+        }
         saveAll(list)
     }
 

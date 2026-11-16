@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.PointF
 import android.os.Bundle
 import android.view.MotionEvent
+import android.widget.CheckBox
 import android.widget.TextView
 import kotlin.math.roundToInt
 
@@ -13,18 +14,20 @@ class PracticeActivity : Activity() {
     private lateinit var pathView: PathView
     private lateinit var result: TextView
     private lateinit var detail: TextView
+    private lateinit var runBox: CheckBox
     private lateinit var recorder: GestureRecorder
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
+        ActionRunner.init(this)
 
         recorder = GestureRecorder(this) { pts, _ -> onRecorded(pts) }
 
         val root = Ui.root(this)
         root.addView(Ui.text(this, "Practice", 26f, Ui.CYAN))
         root.addView(
-            Ui.text(this, "No action runs here. Draw and see what AirDraw thinks.", 13f, Ui.PURPLE),
+            Ui.text(this, "Draw and see what AirDraw thinks.", 13f, Ui.PURPLE),
             Ui.params(this, Ui.WRAP, 4)
         )
 
@@ -36,6 +39,11 @@ class PracticeActivity : Activity() {
 
         detail = Ui.text(this, "Hold the button and draw.", 14f, Ui.GRAY)
         root.addView(detail, Ui.params(this, Ui.WRAP, 2))
+
+        runBox = CheckBox(this)
+        runBox.text = "Run the action on match"
+        runBox.setTextColor(Color.WHITE)
+        root.addView(runBox, Ui.params(this, Ui.WRAP, 6))
 
         val hold = Ui.button(this, "HOLD TO DRAW")
         hold.textSize = 20f
@@ -79,7 +87,12 @@ class PracticeActivity : Activity() {
         if (pct >= need) {
             result.setTextColor(Color.parseColor("#00FF88"))
             result.text = r.name
-            detail.text = "Score " + pct + "% (needs " + need + "%)"
+            var msg = "Score " + pct + "% (needs " + need + "%)"
+            if (runBox.isChecked) {
+                val sym = symbols.firstOrNull { it.name == r.name }
+                if (sym != null) msg = msg + ". " + ActionRunner.run(this, sym.action)
+            }
+            detail.text = msg
         } else {
             result.setTextColor(Color.parseColor("#FF4466"))
             result.text = "No match"

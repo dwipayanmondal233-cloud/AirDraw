@@ -5,7 +5,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 
@@ -16,12 +16,13 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
+        ActionRunner.init(this)
 
         val root = Ui.root(this)
         root.addView(Ui.text(this, "AirDraw", 30f, Ui.CYAN))
         root.addView(Ui.text(this, "Draw magic in the air", 14f, Ui.PURPLE))
         root.addView(
-            Ui.text(this, "My symbols (tap one to re-teach it)", 13f, Ui.GRAY),
+            Ui.text(this, "My symbols", 13f, Ui.GRAY),
             Ui.params(this, Ui.WRAP, 14)
         )
 
@@ -63,6 +64,12 @@ class MainActivity : Activity() {
         refresh()
     }
 
+    private fun smallBtn(text: String, color: String, onClick: () -> Unit): Button {
+        val b = Ui.button(this, text, color)
+        b.setOnClickListener { onClick() }
+        return b
+    }
+
     private fun refresh() {
         listBox.removeAllViews()
         val symbols = Store.getSymbols()
@@ -74,29 +81,47 @@ class MainActivity : Activity() {
             return
         }
         for (s in symbols) {
-            val row = LinearLayout(this)
-            row.orientation = LinearLayout.HORIZONTAL
-            row.gravity = Gravity.CENTER_VERTICAL
-            row.setBackgroundColor(Color.parseColor("#14142A"))
+            val card = LinearLayout(this)
+            card.orientation = LinearLayout.VERTICAL
+            card.setBackgroundColor(Color.parseColor("#14142A"))
+            card.setPadding(Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10))
 
-            val label = Ui.text(
-                this,
-                s.name + "   (" + s.samples.size + " samples)",
-                20f, Ui.CYAN, false
+            card.addView(Ui.text(this, s.name, 22f, Ui.CYAN, false))
+            card.addView(
+                Ui.text(
+                    this,
+                    "Action: " + s.action.label + "  |  " + s.samples.size + " samples",
+                    13f, Ui.GRAY, false
+                )
             )
-            label.setPadding(Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 8), Ui.dp(this, 14))
-            label.setOnClickListener {
+
+            val btnRow = LinearLayout(this)
+            btnRow.orientation = LinearLayout.HORIZONTAL
+            val actionBtn = smallBtn("Action", Ui.BTN) {
+                val i = Intent(this, ActionActivity::class.java)
+                i.putExtra("name", s.name)
+                startActivity(i)
+            }
+            val teachBtn = smallBtn("Re-teach", "#444466") {
                 val i = Intent(this, TeachActivity::class.java)
                 i.putExtra("name", s.name)
                 startActivity(i)
             }
+            val delBtn = smallBtn("Delete", "#AA2244") { confirmDelete(s.name) }
 
-            val del = Ui.button(this, "Delete", "#AA2244")
-            del.setOnClickListener { confirmDelete(s.name) }
+            val a = LinearLayout.LayoutParams(0, Ui.dp(this, 46), 1f)
+            a.rightMargin = Ui.dp(this, 3)
+            val b = LinearLayout.LayoutParams(0, Ui.dp(this, 46), 1f)
+            b.leftMargin = Ui.dp(this, 3)
+            b.rightMargin = Ui.dp(this, 3)
+            val c = LinearLayout.LayoutParams(0, Ui.dp(this, 46), 1f)
+            c.leftMargin = Ui.dp(this, 3)
+            btnRow.addView(actionBtn, a)
+            btnRow.addView(teachBtn, b)
+            btnRow.addView(delBtn, c)
+            card.addView(btnRow, Ui.params(this, Ui.WRAP, 8))
 
-            row.addView(label, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
-            row.addView(del, LinearLayout.LayoutParams(Ui.WRAP, Ui.WRAP))
-            listBox.addView(row, Ui.params(this, Ui.WRAP, 6))
+            listBox.addView(card, Ui.params(this, Ui.WRAP, 8))
         }
     }
 
