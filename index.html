@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0a12">
+<title>AirDraw - draw symbols in the air</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A8%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0a0a12;
+  --card: #12122a;
+  --line: #2a2a55;
+  --cyan: #00e5ff;
+  --purple: #b040ff;
+  --text: #e8e8ff;
+  --muted: #9a9ac0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(176,64,255,.22), transparent 55%),
+    radial-gradient(ellipse at 90% 30%, rgba(0,229,255,.12), transparent 50%),
+    var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.55;
+}
+main { max-width: 760px; margin: 0 auto; padding: 0 18px 60px; }
+header { text-align: center; padding: 56px 0 28px; }
+h1 {
+  margin: 0;
+  font-size: clamp(44px, 12vw, 72px);
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, var(--purple), var(--cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(176,64,255,.55));
+}
+.tag { color: var(--muted); font-size: 18px; margin: 10px 0 26px; }
+.btn {
+  display: inline-block;
+  padding: 16px 34px;
+  border-radius: 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  background: linear-gradient(90deg, #7b2fff, #00a8cc);
+  border: 2px solid rgba(0,229,255,.7);
+  box-shadow: 0 0 22px rgba(123,47,255,.6);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+.btn:active { transform: scale(.97); }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(123,47,255,.55); }
+  50% { box-shadow: 0 0 34px rgba(0,229,255,.75); }
+}
+.small { color: var(--muted); font-size: 13px; margin-top: 12px; }
+section { margin-top: 40px; }
+h2 { font-size: 26px; margin: 0 0 12px; color: var(--cyan); text-shadow: 0 0 14px rgba(0,229,255,.45); }
+p { margin: 8px 0; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+#padwrap { position: relative; }
+#pad {
+  width: 100%;
+  height: 340px;
+  display: block;
+  border-radius: 18px;
+  border: 1px solid #4433aa;
+  background: #07070f;
+  touch-action: none;
+  cursor: crosshair;
+}
+.padbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 10px; flex-wrap: wrap; }
+#guess { font-size: 18px; color: var(--cyan); min-height: 28px; }
+#guess small { color: var(--muted); font-size: 13px; }
+.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--purple);
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 15px;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.sym { text-align: center; }
+.sym svg { width: 64px; height: 64px; }
+.sym b { display: block; margin-top: 6px; }
+.sym span { color: var(--muted); font-size: 14px; }
+ol, ul { padding-left: 22px; margin: 8px 0; }
+li { margin: 8px 0; }
+details {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 4px 16px;
+  margin: 10px 0;
+}
+summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+details[open] { border-color: var(--purple); }
+details p, details ol { color: var(--muted); }
+footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 50px; }
+a { color: var(--cyan); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>AirDraw</h1>
+  <p class="tag">Hold your phone like a magic wand. Draw a symbol in the air. Your phone does the magic.</p>
+  <a class="btn" href="https://github.com/dwipayanmondal233-cloud/AirDraw/releases/latest/download/AirDraw.apk">Download for Android</a>
+  <p class="small">Free. Android 8.0 or newer. Not on the Play Store, so you install it from this page.</p>
+</header>
+
+<section id="demo">
+  <h2>Try the magic</h2>
+  <p>Draw a Circle, Z, C, W, V or L with your finger or mouse. The real app does this with your phone movement, no screen touching.</p>
+  <div class="card">
+    <div id="padwrap"><canvas id="pad"></canvas></div>
+    <div class="padbar">
+      <div id="guess">Draw something...</div>
+      <button class="ghost" id="clear" type="button">Clear</button>
+    </div>
+  </div>
+  <p class="small">This demo is a toy with fixed shapes. In the app you teach your own symbols.</p>
+</section>
+
+<section>
+  <h2>How it works</h2>
+  <div class="card">
+    <ol>
+      <li><b>Trigger.</b> Shake the phone 3 times, or hold Volume Down.</li>
+      <li><b>Draw.</b> Move your wrist for about 1.5 seconds. The gyroscope tells the app how fast you turn.</li>
+      <li><b>3D to 2D.</b> The app adds up the turning speed into left/right and up/down angles. That gives a flat path, like an air mouse. It does not use the accelerometer for the path, because that drifts away quickly.</li>
+      <li><b>Recognize.</b> The path is compared with the symbols you taught (the $1 Unistroke method). If the score is high enough, the action runs.</li>
+      <li><b>Feel it.</b> A buzz when it starts, two pulses on success, one long soft buzz for no match.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>Symbols and actions</h2>
+  <p>You choose what each symbol does. Examples:</p>
+  <div class="grid">
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="22"/></svg>
+      <b>Circle</b><span>Open the camera</span>
+    </div>
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14 H50 L14 50 H50"/></svg>
+      <b>Z</b><span>Flashlight on/off</span>
+    </div>
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M48 18 A22 22 0 1 0 48 46"/></svg>
+      <b>C</b><span>Open WhatsApp</span>
+    </div>
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14 L20 50 L32 14 L44 50 L56 14"/></svg>
+      <b>W</b><span>Call a saved number</span>
+    </div>
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14 L32 52 L52 14"/></svg>
+      <b>V</b><span>Play / pause music</span>
+    </div>
+    <div class="card sym">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#00e5ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 12 V50 H50"/></svg>
+      <b>L</b><span>Open a web page</span>
+    </div>
+  </div>
+  <p class="small">Available actions: open any app, flashlight, camera, call a number, open a URL, media play/pause. Any shape works, you record 3 samples of it.</p>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <div class="card">
+    <ol>
+      <li>Tap <b>Download for Android</b>. If Chrome warns that the file may be harmful, tap Keep or Download anyway.</li>
+      <li>Open the downloaded <b>AirDraw.apk</b> and tap Install. If Android asks, allow installs from Chrome.</li>
+      <li>If you see "App blocked to protect your device", see the fix below.</li>
+      <li>Open AirDraw. Tap <b>Teach new symbol</b> and record 3 samples.</li>
+      <li>Turn the <b>AirDraw ON</b> switch. Shake 3 times (or hold Volume Down), feel the buzz, then draw.</li>
+      <li>For the Volume Down trigger, turn on AirDraw in Settings, Accessibility.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="fixes">
+  <h2>Problems and fixes</h2>
+
+  <details>
+    <summary>"App blocked to protect your device" (Play Protect)</summary>
+    <ol>
+      <li>Open the Play Store, tap your profile picture, then Play Protect.</li>
+      <li>Tap the gear icon and turn off "Scan apps with Play Protect".</li>
+      <li>Install AirDraw.</li>
+      <li>Turn the setting back on.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>Accessibility switch is greyed out ("Restricted setting")</summary>
+    <ol>
+      <li>Go to Settings, Apps, AirDraw.</li>
+      <li>Tap the 3-dot menu at the top right.</li>
+      <li>Tap "Allow restricted settings".</li>
+      <li>Go back to Accessibility and turn AirDraw on.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>After installing an update, nothing works</summary>
+    <p>Turn the AirDraw Accessibility service OFF and then ON again.</p>
+  </details>
+
+  <details>
+    <summary>"App not installed" when updating</summary>
+    <p>This is a debug build, and each new build has a different signature. Uninstall the old AirDraw first, then install the new one. You will need to teach your symbols again.</p>
+  </details>
+
+  <details>
+    <summary>Permission popups do not appear</summary>
+    <p>If any app draws over the screen (like a floating bubble), Android blocks permission popups. Stop that app first. Or give the permission by hand in Settings, Apps, AirDraw, Permissions.</p>
+  </details>
+
+  <details>
+    <summary>It stops working after a while</summary>
+    <p>Some phones kill background services. Open Settings, Apps, AirDraw, Battery, and choose Unrestricted. The AirDraw Settings screen also has a Battery settings button.</p>
+  </details>
+
+  <details>
+    <summary>Shake does not trigger, or triggers by accident</summary>
+    <p>Open AirDraw Settings and change Shake strength. Lower is easier, higher is harder.</p>
+  </details>
+
+  <details>
+    <summary>Apps or calls do not open when another app is on screen</summary>
+    <p>Android 10 and newer limits starting apps from the background. Keep the AirDraw Accessibility service turned on, since it usually fixes this. As a backup, allow the Overlay permission from AirDraw Settings.</p>
+  </details>
+
+  <details>
+    <summary>Symbols get confused or rejected</summary>
+    <p>Draw big, slow wrist movements. Hold the phone the same way you did when teaching. Record the 3 samples in that same posture. Use the Practice screen to see your scores, then adjust the match threshold.</p>
+  </details>
+</section>
+
+<section>
+  <h2>Honest limits</h2>
+  <div class="card">
+    <ul>
+      <li>Some phones stop sensors when the screen is off. Test it on yours.</li>
+      <li>The path comes from the gyroscope and drifts a little, so only about 1.5 seconds is used.</li>
+      <li>Accuracy depends on how you move. Shapes will vary a bit each time.</li>
+      <li>Opening apps from the background depends on your Android version.</li>
+      <li>Calling a number dials at once. Keep the match threshold high for that symbol.</li>
+      <li>Accessibility apps get flagged by Play Protect and cannot easily go on the Play Store, so this page is the way to install.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p>AirDraw - made with a lot of wrist waving.</p>
+  <p><a href="https://github.com/dwipayanmondal233-cloud/AirDraw">Source on GitHub</a></p>
+</footer>
+
+</main>
+
+<script>
+(function () {
+  var N = 64;
+  var SIZE = 250;
+  var HALF = 0.5 * Math.sqrt(2 * SIZE * SIZE);
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+  function pathLen(p) {
+    var d = 0;
+    for (var i = 1; i < p.length; i++) d += dist(p[i - 1], p[i]);
+    return d;
+  }
+
+  function resample(pts, n) {
+    var I = pathLen(pts) / (n - 1);
+    if (!(I > 0)) return null;
+    var src = pts.slice();
+    var out = [src[0]];
+    var D = 0;
+    for (var i = 1; i < src.length; i++) {
+      var d = dist(src[i - 1], src[i]);
+      if (d > 0 && D + d >= I) {
+        var t = (I - D) / d;
+        var q = {
+          x: src[i - 1].x + t * (src[i].x - src[i - 1].x),
+          y: src[i - 1].y + t * (src[i].y - src[i - 1].y)
+        };
+        out.push(q);
+        src.splice(i, 0, q);
+        D = 0;
+      } else {
+        D += d;
+      }
+    }
+    while (out.length < n) out.push(src[src.length - 1]);
+    while (out.length > n) out.pop();
+    return out;
+  }
+
+  function normalize(pts) {
+    var r = resample(pts, N);
+    if (!r) return null;
+    var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    r.forEach(function (p) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    });
+    var m = Math.max(maxX - minX, maxY - minY);
+    var k = m > 0 ? SIZE / m : 1;
+    var s = r.map(function (p) { return { x: p.x * k, y: p.y * k }; });
+    var cx = 0, cy = 0;
+    s.forEach(function (p) { cx += p.x; cy += p.y; });
+    cx /= s.length;
+    cy /= s.length;
+    return s.map(function (p) { return { x: p.x - cx, y: p.y - cy }; });
+  }
+
+  function pathDist(a, b) {
+    var d = 0;
+    for (var i = 0; i < a.length; i++) d += dist(a[i], b[i]);
+    return d / a.length;
+  }
+
+  var T = [];
+
+  function add(name, pts) {
+    var a = normalize(pts);
+    if (a) T.push({ name: name, pts: a });
+    var b = normalize(pts.slice().reverse());
+    if (b) T.push({ name: name, pts: b });
+  }
+
+  function poly(v) {
+    return v.map(function (a) { return { x: a[0], y: a[1] }; });
+  }
+
+  for (var s = 0; s < 8; s++) {
+    var c = [];
+    for (var i = 0; i <= 64; i++) {
+      var a = s * Math.PI / 4 + (i / 64) * 2 * Math.PI;
+      c.push({ x: Math.cos(a), y: Math.sin(a) });
+    }
+    add('Circle', c);
+  }
+  add('Z', poly([[0, 0], [1, 0], [0, 1], [1, 1]]));
+  add('V', poly([[0, 0], [0.5, 1], [1, 0]]));
+  add('W', poly([[0, 0], [0.25, 1], [0.5, 0], [0.75, 1], [1, 0]]));
+  add('L', poly([[0, 0], [0, 1], [1, 1]]));
+  var arc = [];
+  for (var j = 0; j <= 40; j++) {
+    var ang = -Math.PI / 4 - (j / 40) * 1.5 * Math.PI;
+    arc.push({ x: Math.cos(ang), y: Math.sin(ang) });
+  }
+  add('C', arc);
+
+  var ACTIONS = {
+    Circle: 'Open the camera',
+    Z: 'Flashlight on/off',
+    C: 'Open WhatsApp',
+    W: 'Call a saved number',
+    V: 'Play / pause music',
+    L: 'Open a web page'
+  };
+
+  var cv = document.getElementById('pad');
+  var ctx = cv.getContext('2d');
+  var guess = document.getElementById('guess');
+  var pts = [];
+  var drawing = false;
+  var sparks = [];
+  var stars = [];
+  for (var k = 0; k < 40; k++) {
+    stars.push({ x: Math.random(), y: Math.random(), r: 0.8 + Math.random() * 1.6, p: Math.random() * 6.28 });
+  }
+
+  function resize() {
+    var r = cv.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * dpr);
+    cv.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function pos(e) {
+    var r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function spark(p) {
+    for (var i = 0; i < 2; i++) {
+      sparks.push({
+        x: p.x,
+        y: p.y,
+        vx: (Math.random() - 0.5) * 1.6,
+        vy: (Math.random() - 0.5) * 1.6,
+        life: 1
+      });
+    }
+    if (sparks.length > 200) sparks.splice(0, sparks.length - 200);
+  }
+
+  function judge() {
+    if (pts.length < 8) {
+      guess.textContent = 'Draw a bigger shape.';
+      return;
+    }
+    var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    pts.forEach(function (p) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    });
+    if (Math.max(maxX - minX, maxY - minY) < 50) {
+      guess.textContent = 'Too small. Draw bigger.';
+      return;
+    }
+    var n = normalize(pts);
+    if (!n) {
+      guess.textContent = 'Try again.';
+      return;
+    }
+    var best = 1e9;
+    var name = '';
+    T.forEach(function (t) {
+      var d = pathDist(n, t.pts);
+      if (d < best) { best = d; name = t.name; }
+    });
+    var score = Math.max(0, 1 - best / HALF);
+    var pct = Math.round(score * 100);
+    if (score >= 0.66) {
+      guess.innerHTML = 'Looks like <b>' + name + '</b> (' + pct + '%)<br><small>Example action: ' + ACTIONS[name] + '</small>';
+    } else {
+      guess.innerHTML = 'No match <small>(closest ' + name + ' ' + pct + '%)</small>';
+    }
+  }
+
+  cv.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    drawing = true;
+    pts = [pos(e)];
+    guess.textContent = '...';
+  });
+
+  cv.addEventListener('pointermove', function (e) {
+    if (!drawing) return;
+    var p = pos(e);
+    pts.push(p);
+    spark(p);
+  });
+
+  function end() {
+    if (!drawing) return;
+    drawing = false;
+    judge();
+  }
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+
+  document.getElementById('clear').addEventListener('click', function () {
+    pts = [];
+    sparks = [];
+    guess.textContent = 'Draw something...';
+  });
+
+  function strokePath() {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  }
+
+  function frame(t) {
+    var w = cv.clientWidth;
+    var h = cv.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    stars.forEach(function (s) {
+      var a = 0.35 + 0.3 * Math.sin(t / 700 + s.p);
+      ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(s.x * w, s.y * h, s.r, 0, 6.2832);
+      ctx.fill();
+    });
+
+    if (pts.length > 1) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = '#b040ff';
+      ctx.shadowBlur = 26;
+      ctx.strokeStyle = 'rgba(176,64,255,.9)';
+      ctx.lineWidth = 11;
+      strokePath();
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 4;
+      strokePath();
+      ctx.shadowBlur = 0;
+      var f = pts[0];
+      ctx.fillStyle = '#00ff88';
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 6, 0, 6.2832);
+      ctx.fill();
+      var l = pts[pts.length - 1];
+      ctx.fillStyle = drawing ? '#ffffff' : '#ff4466';
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, drawing ? 7 : 6, 0, 6.2832);
+      ctx.fill();
+    }
+
+    for (var i = sparks.length - 1; i >= 0; i--) {
+      var p = sparks[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.03;
+      if (p.life <= 0) {
+        sparks.splice(i, 1);
+        continue;
+      }
+      ctx.fillStyle = 'rgba(0,229,255,' + p.life.toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.2 * p.life + 0.5, 0, 6.2832);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
