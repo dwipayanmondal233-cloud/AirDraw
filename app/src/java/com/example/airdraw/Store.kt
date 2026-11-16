@@ -48,6 +48,14 @@ object Store {
         get() = prefs.getInt("shakeG", 25)
         set(v) { prefs.edit().putInt("shakeG", v).apply() }
 
+    var vibration: Boolean
+        get() = prefs.getBoolean("vibration", true)
+        set(v) { prefs.edit().putBoolean("vibration", v).apply() }
+
+    var sounds: Boolean
+        get() = prefs.getBoolean("sounds", true)
+        set(v) { prefs.edit().putBoolean("sounds", v).apply() }
+
     var flipY: Boolean
         get() = prefs.getBoolean("flipY", false)
         set(v) { prefs.edit().putBoolean("flipY", v).apply() }

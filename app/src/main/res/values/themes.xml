@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AirDraw" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/air_bg</item>
+        <item name="android:statusBarColor">@color/air_bg</item>
+        <item name="android:navigationBarColor">@color/air_bg</item>
+        <item name="android:colorAccent">@color/air_cyan</item>
+        <item name="android:colorControlActivated">@color/air_cyan</item>
+    </style>
+</resources>

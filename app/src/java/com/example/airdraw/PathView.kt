@@ -1,5 +1,6 @@
 package com.example.airdraw
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -7,17 +8,49 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.view.View
+import android.view.animation.LinearInterpolator
+import java.util.Random
+import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 class PathView(context: Context) : View(context) {
 
     private var pts: List<PointF> = emptyList()
+    private var progress = 1f
+    private var twinkle = 0f
+    private var anim: ValueAnimator? = null
+    private var twAnim: ValueAnimator? = null
+
+    // x, y (0..1), radius, phase
+    private val stars: List<FloatArray>
+
+    init {
+        val rnd = Random(7)
+        val list = ArrayList<FloatArray>()
+        for (i in 0 until 36) {
+            list.add(
+                floatArrayOf(
+                    rnd.nextFloat(),
+                    rnd.nextFloat(),
+                    1.5f + rnd.nextFloat() * 2f,
+                    rnd.nextFloat() * 6.28f
+                )
+            )
+        }
+        stars = list
+    }
+
+    private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
 
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#55B040FF")
+        color = Color.parseColor("#66B040FF")
         style = Paint.Style.STROKE
-        strokeWidth = 22f
+        strokeWidth = 24f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
@@ -40,20 +73,71 @@ class PathView(context: Context) : View(context) {
         style = Paint.Style.FILL
     }
 
+    private val headGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#6600E5FF")
+        style = Paint.Style.FILL
+    }
+
+    private val headPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#333355")
+        color = Color.parseColor("#4433AA")
         style = Paint.Style.STROKE
         strokeWidth = 3f
     }
 
     fun setPath(points: List<PointF>) {
         pts = points.toList()
-        invalidate()
+        anim?.cancel()
+        if (pts.size < 2) {
+            progress = 1f
+            invalidate()
+            return
+        }
+        val a = ValueAnimator.ofFloat(0f, 1f)
+        a.duration = 800
+        a.interpolator = LinearInterpolator()
+        a.addUpdateListener {
+            progress = it.animatedValue as Float
+            invalidate()
+        }
+        a.start()
+        anim = a
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        val t = ValueAnimator.ofFloat(0f, (2 * PI).toFloat())
+        t.duration = 4000
+        t.repeatCount = ValueAnimator.INFINITE
+        t.interpolator = LinearInterpolator()
+        t.addUpdateListener {
+            twinkle = it.animatedValue as Float
+            invalidate()
+        }
+        t.start()
+        twAnim = t
+    }
+
+    override fun onDetachedFromWindow() {
+        anim?.cancel()
+        twAnim?.cancel()
+        super.onDetachedFromWindow()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawRect(2f, 2f, width - 2f, height - 2f, border)
+        canvas.drawRoundRect(2f, 2f, width - 2f, height - 2f, 28f, 28f, border)
+
+        for (s in stars) {
+            val a = (90 + 90 * sin(twinkle + s[3])).toInt().coerceIn(0, 255)
+            starPaint.alpha = a
+            canvas.drawCircle(s[0] * width, s[1] * height, s[2], starPaint)
+        }
+
         if (pts.size < 2) return
 
         var minX = pts[0].x
@@ -75,20 +159,20 @@ class PathView(context: Context) : View(context) {
         val offX = pad + (areaW - (maxX - minX) * scale) / 2f
         val offY = pad + (areaH - (maxY - minY) * scale) / 2f
 
+        val count = max(2, (progress * (pts.size - 1)).toInt() + 1).coerceAtMost(pts.size)
+
         val path = Path()
-        var first = true
-        var lastX = 0f
-        var lastY = 0f
         var firstX = 0f
         var firstY = 0f
-        for (p in pts) {
-            val x = offX + (p.x - minX) * scale
-            val y = offY + (p.y - minY) * scale
-            if (first) {
+        var lastX = 0f
+        var lastY = 0f
+        for (i in 0 until count) {
+            val x = offX + (pts[i].x - minX) * scale
+            val y = offY + (pts[i].y - minY) * scale
+            if (i == 0) {
                 path.moveTo(x, y)
                 firstX = x
                 firstY = y
-                first = false
             } else {
                 path.lineTo(x, y)
             }
@@ -99,6 +183,11 @@ class PathView(context: Context) : View(context) {
         canvas.drawPath(path, glow)
         canvas.drawPath(path, line)
         canvas.drawCircle(firstX, firstY, 14f, startPaint)
-        canvas.drawCircle(lastX, lastY, 14f, endPaint)
+        if (progress < 1f) {
+            canvas.drawCircle(lastX, lastY, 26f, headGlow)
+            canvas.drawCircle(lastX, lastY, 10f, headPaint)
+        } else {
+            canvas.drawCircle(lastX, lastY, 14f, endPaint)
+        }
     }
 }

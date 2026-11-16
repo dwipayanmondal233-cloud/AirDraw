@@ -143,6 +143,28 @@ class SettingsActivity : Activity() {
             Ui.params(this, Ui.WRAP, 16)
         )
 
+        val vibBox = CheckBox(this)
+        vibBox.text = "Vibration feedback"
+        vibBox.setTextColor(Color.WHITE)
+        vibBox.isChecked = Store.vibration
+        vibBox.setOnCheckedChangeListener { _, v -> Store.vibration = v }
+        root.addView(vibBox, Ui.params(this, Ui.WRAP, 20))
+
+        val sndBox = CheckBox(this)
+        sndBox.text = "Sound feedback"
+        sndBox.setTextColor(Color.WHITE)
+        sndBox.isChecked = Store.sounds
+        sndBox.setOnCheckedChangeListener { _, v -> Store.sounds = v }
+        root.addView(sndBox, Ui.params(this, Ui.WRAP, 8))
+
+        val tfBtn = Ui.button(this, "Test sound + vibration", "#444466")
+        tfBtn.setOnClickListener {
+            Feedback.start(this)
+            tfBtn.postDelayed({ Feedback.success(this) }, 800)
+            tfBtn.postDelayed({ Feedback.error(this) }, 1700)
+        }
+        root.addView(tfBtn, Ui.params(this, Ui.dp(this, 52), 12))
+
         // System shortcuts
         val accBtn = Ui.button(this, "Accessibility settings", "#444466")
         accBtn.setOnClickListener {

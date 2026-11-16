@@ -125,7 +125,7 @@ class AirService : Service(), SensorEventListener {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_stat_wand)
             .setContentTitle("AirDraw is on")
             .setContentText(text)
             .setContentIntent(pi)

@@ -20,7 +20,8 @@ object Feedback {
     }
 
     @Suppress("DEPRECATION")
-    private fun play(c: Context, effect: VibrationEffect) {
+    private fun buzz(c: Context, effect: VibrationEffect) {
+        if (!Store.vibration) return
         try {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
@@ -32,14 +33,17 @@ object Feedback {
     }
 
     fun start(c: Context) {
-        play(c, VibrationEffect.createOneShot(40, 200))
+        buzz(c, VibrationEffect.createOneShot(40, 200))
+        if (Store.sounds) Sounds.start()
     }
 
     fun success(c: Context) {
-        play(c, VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60), -1))
+        buzz(c, VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60), -1))
+        if (Store.sounds) Sounds.success()
     }
 
     fun error(c: Context) {
-        play(c, VibrationEffect.createOneShot(250, 60))
+        buzz(c, VibrationEffect.createOneShot(250, 60))
+        if (Store.sounds) Sounds.error()
     }
 }
