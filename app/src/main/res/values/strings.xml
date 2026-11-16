@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="key_service_desc">AirDraw only looks at the Volume Down button, so you can start a gesture without touching the screen.</string>
+</resources>

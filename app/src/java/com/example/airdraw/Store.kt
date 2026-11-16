@@ -40,6 +40,14 @@ object Store {
         get() = prefs.getBoolean("flipX", false)
         set(v) { prefs.edit().putBoolean("flipX", v).apply() }
 
+    var trigger: String
+        get() = prefs.getString("trigger", "shake") ?: "shake"
+        set(v) { prefs.edit().putString("trigger", v).apply() }
+
+    var shakeG: Int
+        get() = prefs.getInt("shakeG", 25)
+        set(v) { prefs.edit().putInt("shakeG", v).apply() }
+
     var flipY: Boolean
         get() = prefs.getBoolean("flipY", false)
         set(v) { prefs.edit().putBoolean("flipY", v).apply() }
