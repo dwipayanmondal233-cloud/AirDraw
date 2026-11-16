@@ -185,7 +185,7 @@ class SettingsActivity : Activity() {
 
         val batBtn = Ui.button(this, "Battery settings", "#444466")
         batBtn.setOnClickListener {
-            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS_SETTINGS))
+           open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
         root.addView(batBtn, Ui.params(this, Ui.dp(this, 52), 8))
 
