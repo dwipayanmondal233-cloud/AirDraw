@@ -68,6 +68,21 @@
             android:screenOrientation="portrait" />
 
         <activity
+            android:name=".SamplesActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".PermissionsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".HelpActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

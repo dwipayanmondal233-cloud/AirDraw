@@ -111,6 +111,71 @@ object Store {
         e.apply()
     }
 
+    fun getSymbol(name: String): Symbol? {
+        return getSymbols().firstOrNull { it.name == name }
+    }
+
+    fun addSample(name: String, sample: List<PointF>) {
+        val list = ArrayList<Symbol>()
+        for (s in getSymbols()) {
+            if (s.name == name) {
+                val ns = ArrayList<List<PointF>>(s.samples)
+                ns.add(sample)
+                list.add(Symbol(s.name, ns, s.action))
+            } else {
+                list.add(s)
+            }
+        }
+        saveAll(list)
+    }
+
+    fun removeSample(name: String, index: Int) {
+        val list = ArrayList<Symbol>()
+        for (s in getSymbols()) {
+            if (s.name == name && index >= 0 && index < s.samples.size) {
+                val ns = ArrayList<List<PointF>>(s.samples)
+                ns.removeAt(index)
+                list.add(Symbol(s.name, ns, s.action))
+            } else {
+                list.add(s)
+            }
+        }
+        saveAll(list)
+    }
+
+    fun addLog(ok: Boolean, text: String) {
+        try {
+            val arr = JSONArray(prefs.getString("log", "[]"))
+            val out = JSONArray()
+            val start = Math.max(0, arr.length() - 39)
+            for (i in start until arr.length()) out.put(arr.get(i))
+            val o = JSONObject()
+            o.put("t", System.currentTimeMillis())
+            o.put("ok", ok)
+            o.put("s", text)
+            out.put(o)
+            prefs.edit().putString("log", out.toString()).apply()
+        } catch (e: Exception) {
+        }
+    }
+
+    fun getLog(): List<LogEntry> {
+        val out = ArrayList<LogEntry>()
+        try {
+            val arr = JSONArray(prefs.getString("log", "[]"))
+            for (i in arr.length() - 1 downTo 0) {
+                val o = arr.getJSONObject(i)
+                out.add(LogEntry(o.getLong("t"), o.getBoolean("ok"), o.getString("s")))
+            }
+        } catch (e: Exception) {
+        }
+        return out
+    }
+
+    fun clearLog() {
+        prefs.edit().remove("log").apply()
+    }
+
     var flipY: Boolean
         get() = prefs.getBoolean("flipY", false)
         set(v) { prefs.edit().putBoolean("flipY", v).apply() }

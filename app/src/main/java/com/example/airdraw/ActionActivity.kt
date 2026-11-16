@@ -2,16 +2,16 @@ package com.example.airdraw
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
+import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -23,9 +23,13 @@ class ActionActivity : Activity() {
     private var symbolName = ""
     private lateinit var group: RadioGroup
     private lateinit var appBtn: Button
-    private lateinit var appInfo: TextView
+    private lateinit var appRow: LinearLayout
+    private lateinit var appIcon: ImageView
+    private lateinit var appName: TextView
+    private lateinit var appPkg: TextView
     private lateinit var phoneBox: EditText
     private lateinit var urlBox: EditText
+    private lateinit var callNote: TextView
     private lateinit var info: TextView
 
     private val types = listOf("none", "flashlight", "app", "camera", "call", "url", "media")
@@ -35,7 +39,6 @@ class ActionActivity : Activity() {
     )
     private val ids = ArrayList<Int>()
     private var pickedPkg = ""
-    private var pickedLabel = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +47,7 @@ class ActionActivity : Activity() {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
 
         symbolName = intent.getStringExtra("name") ?: ""
-        val existing = Store.getSymbols().firstOrNull { it.name == symbolName }?.action
+        val existing = Store.getSymbol(symbolName)?.action
 
         val root = Ui.root(this)
         root.addView(Ui.text(this, "Action for: " + symbolName, 24f, Ui.CYAN))
@@ -64,15 +67,43 @@ class ActionActivity : Activity() {
         }
         root.addView(group, Ui.params(this, Ui.WRAP, 12))
 
+        // App picker + selected app display
         appBtn = Ui.button(this, "Choose app", "#444466")
-        appBtn.setOnClickListener { pickApp() }
-        appInfo = Ui.text(this, "No app selected", 13f, Ui.GRAY, false)
+        appBtn.setOnClickListener {
+            AppInfo.pick(this) { item ->
+                pickedPkg = item.pkg
+                showPicked()
+            }
+        }
+
+        appRow = LinearLayout(this)
+        appRow.orientation = LinearLayout.HORIZONTAL
+        appRow.gravity = Gravity.CENTER_VERTICAL
+        appRow.setBackgroundColor(Color.parseColor("#14142A"))
+        appRow.setPadding(Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10))
+        appIcon = ImageView(this)
+        appRow.addView(appIcon, LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)))
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        appName = Ui.text(this, "", 18f, Ui.CYAN, false)
+        appPkg = Ui.text(this, "", 11f, Ui.GRAY, false)
+        col.addView(appName)
+        col.addView(appPkg)
+        val colLp = LinearLayout.LayoutParams(0, Ui.WRAP, 1f)
+        colLp.leftMargin = Ui.dp(this, 12)
+        appRow.addView(col, colLp)
 
         phoneBox = EditText(this)
         phoneBox.hint = "Phone number, for example +911234567890"
         phoneBox.setHintTextColor(Color.parseColor("#666688"))
         phoneBox.setTextColor(Color.WHITE)
         phoneBox.inputType = InputType.TYPE_CLASS_PHONE
+
+        callNote = Ui.text(
+            this,
+            "Safety: Call symbols need " + Store.callExtra + "% more score than other symbols.",
+            12f, Ui.PURPLE, false
+        )
 
         urlBox = EditText(this)
         urlBox.hint = "https://example.com"
@@ -81,8 +112,9 @@ class ActionActivity : Activity() {
         urlBox.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
 
         root.addView(appBtn, Ui.params(this, Ui.dp(this, 52), 8))
-        root.addView(appInfo, Ui.params(this, Ui.WRAP, 4))
+        root.addView(appRow, Ui.params(this, Ui.WRAP, 8))
         root.addView(phoneBox, Ui.params(this, Ui.WRAP, 8))
+        root.addView(callNote, Ui.params(this, Ui.WRAP, 4))
         root.addView(urlBox, Ui.params(this, Ui.WRAP, 8))
 
         info = Ui.text(this, "", 14f, Ui.GRAY)
@@ -103,30 +135,18 @@ class ActionActivity : Activity() {
         row.addView(saveBtn, sLp)
         root.addView(row, Ui.params(this, Ui.WRAP, 8))
 
-        root.addView(
-            Ui.text(
-                this,
-                "Careful: Call dials at once. Use a higher match threshold so a wrong symbol never calls anyone.",
-                12f, Ui.PURPLE, false
-            ),
-            Ui.params(this, Ui.WRAP, 16)
-        )
-
         group.setOnCheckedChangeListener { _, _ -> updateVisibility() }
 
         if (existing != null) {
             val idx = types.indexOf(existing.type)
             group.check(ids[if (idx < 0) 0 else idx])
-            if (existing.type == "app") {
-                pickedPkg = existing.data
-                pickedLabel = existing.label.removePrefix("Open ")
-                appInfo.text = "Selected: " + pickedLabel
-            }
+            if (existing.type == "app") pickedPkg = existing.data
             if (existing.type == "call") phoneBox.setText(existing.data)
             if (existing.type == "url") urlBox.setText(existing.data)
         } else {
             group.check(ids[0])
         }
+        showPicked()
         updateVisibility()
 
         val scroll = ScrollView(this)
@@ -140,40 +160,35 @@ class ActionActivity : Activity() {
         return if (i < 0) "none" else types[i]
     }
 
+    private fun showPicked() {
+        if (pickedPkg.isEmpty()) {
+            appName.text = "No app selected"
+            appPkg.text = ""
+            appIcon.setImageDrawable(null)
+            appBtn.text = "Choose app"
+            return
+        }
+        val label = AppInfo.label(this, pickedPkg)
+        if (label == null) {
+            appName.text = "\u2715 App not found"
+            appPkg.text = pickedPkg
+            appIcon.setImageDrawable(null)
+        } else {
+            appName.text = label
+            appPkg.text = pickedPkg
+            appIcon.setImageDrawable(AppInfo.icon(this, pickedPkg))
+        }
+        appBtn.text = "Change app"
+    }
+
     private fun updateVisibility() {
         val t = selectedType()
         appBtn.visibility = if (t == "app") View.VISIBLE else View.GONE
-        appInfo.visibility = if (t == "app") View.VISIBLE else View.GONE
+        appRow.visibility = if (t == "app") View.VISIBLE else View.GONE
         phoneBox.visibility = if (t == "call") View.VISIBLE else View.GONE
+        callNote.visibility = if (t == "call") View.VISIBLE else View.GONE
         urlBox.visibility = if (t == "url") View.VISIBLE else View.GONE
         info.text = ""
-    }
-
-    private fun pickApp() {
-        val pm = packageManager
-        val q = Intent(Intent.ACTION_MAIN)
-        q.addCategory(Intent.CATEGORY_LAUNCHER)
-        val list = pm.queryIntentActivities(q, 0)
-        val items = ArrayList<Pair<String, String>>()
-        for (r in list) {
-            val pkg = r.activityInfo.packageName
-            if (pkg == packageName) continue
-            items.add(Pair(r.loadLabel(pm).toString(), pkg))
-        }
-        items.sortBy { it.first.lowercase() }
-        if (items.isEmpty()) {
-            info.text = "No apps found."
-            return
-        }
-        val labels = items.map { it.first }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Choose an app")
-            .setItems(labels) { _, which ->
-                pickedLabel = items[which].first
-                pickedPkg = items[which].second
-                appInfo.text = "Selected: " + pickedLabel
-            }
-            .show()
     }
 
     private fun buildAction(): ActionDef? {
@@ -186,7 +201,13 @@ class ActionActivity : Activity() {
                     info.text = "Choose an app first."
                     null
                 } else {
-                    ActionDef("app", pickedPkg, "Open " + pickedLabel)
+                    val label = AppInfo.label(this, pickedPkg)
+                    if (label == null) {
+                        info.text = "That app is not installed. Choose another."
+                        null
+                    } else {
+                        ActionDef("app", pickedPkg, "Open " + label)
+                    }
                 }
             }
             "call" -> {
@@ -213,13 +234,10 @@ class ActionActivity : Activity() {
         }
     }
 
-    private fun hasCallPermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.CALL_PHONE) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
     private fun askCallPermission(): Boolean {
-        if (hasCallPermission()) return true
+        if (checkSelfPermission(Manifest.permission.CALL_PHONE) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return true
         requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), 1)
         info.text = "Allow the call permission, then tap the button again."
         return false
@@ -247,7 +265,7 @@ class ActionActivity : Activity() {
         if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             info.text = "Permission allowed. Tap the button again."
         } else {
-            info.text = "Permission denied. Allow it in Settings, Apps, AirDraw, Permissions."
+            info.text = "Permission denied. Use Permissions on the main screen to fix it."
         }
     }
 }

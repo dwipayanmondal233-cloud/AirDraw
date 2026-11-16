@@ -75,6 +75,15 @@ object Recognizer {
         return ArrayList(sm.subList(s, e + 1))
     }
 
+    // How alike two recorded paths are, from 0 to 1
+    fun similarity(a: List<PointF>, b: List<PointF>, rotInv: Boolean): Double {
+        val na = normalize(a, rotInv)
+        val nb = normalize(b, rotInv)
+        val range = if (rotInv) ROT_RANGE else Math.toRadians(Store.tilt.toDouble())
+        val d = if (range > 0.0) bestDistance(na, nb, range) else pathDistance(na, nb)
+        return max(0.0, 1.0 - d / HALF_DIAG)
+    }
+
     fun resampleRaw(raw: List<PointF>): List<PointF> {
         return resample(toPts(raw), N).map { PointF(it.x.toFloat(), it.y.toFloat()) }
     }

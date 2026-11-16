@@ -56,16 +56,22 @@ object GestureEngine {
         val sym = v.symbol
         if (!v.accepted || sym == null) {
             Feedback.error(c)
-            return v.title + ": " + v.detail
+            val m = v.title + ": " + v.detail
+            Store.addLog(false, m)
+            return m
         }
         if (sym.action.type == "none") {
             Feedback.success(c)
-            return sym.name + " " + v.pct + "% (no action set)"
+            val m = sym.name + " " + v.pct + "% (no action set)"
+            Store.addLog(true, m)
+            return m
         }
         val msg = ActionRunner.run(c, sym.action)
         val ok = msg.startsWith("Done") || msg.startsWith("Flashlight on") ||
             msg.startsWith("Flashlight off")
         if (ok) Feedback.success(c) else Feedback.error(c)
-        return sym.name + " " + v.pct + "%: " + msg
+        val m = sym.name + " " + v.pct + "%: " + msg
+        Store.addLog(ok, m)
+        return m
     }
 }
