@@ -91,7 +91,7 @@ class PermissionsActivity : Activity() {
 
         row("Battery unrestricted", Perms.battery(this),
             "Recommended so the phone does not stop the service.", "Open") {
-            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS_SETTINGS))
+            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
 
         row("Flashlight hardware", Perms.flash(this),
