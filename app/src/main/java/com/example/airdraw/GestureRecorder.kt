@@ -9,6 +9,7 @@ import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import kotlin.math.abs
 
 class GestureRecorder(
     context: Context,
@@ -27,6 +28,9 @@ class GestureRecorder(
     private var startMs = 0L
     private var flipX = false
     private var flipY = false
+    private var bias0 = 0f
+    private var bias1 = 0f
+    private var dead = 0f
 
     var isRecording = false
         private set
@@ -43,6 +47,9 @@ class GestureRecorder(
         lastTs = 0L
         flipX = Store.flipX
         flipY = Store.flipY
+        bias0 = if (Store.calibrated) Store.bias0 else 0f
+        bias1 = if (Store.calibrated) Store.bias1 else 0f
+        dead = Store.deadZone / 1000f
         startMs = SystemClock.elapsedRealtime()
         points.add(PointF(0f, 0f))
         isRecording = true
@@ -56,7 +63,7 @@ class GestureRecorder(
         handler.removeCallbacks(stopRunnable)
         sm.unregisterListener(this)
         val ms = SystemClock.elapsedRealtime() - startMs
-        onDone(ArrayList(points), ms)
+        onDone(Recognizer.clean(ArrayList(points)), ms)
     }
 
     fun cancel() {
@@ -70,8 +77,12 @@ class GestureRecorder(
         if (!isRecording) return
         if (lastTs != 0L) {
             val dt = (e.timestamp - lastTs) * 1e-9f
-            yaw += e.values[1] * dt
-            pitch += e.values[0] * dt
+            var wx = e.values[0] - bias0
+            var wy = e.values[1] - bias1
+            if (abs(wx) < dead) wx = 0f
+            if (abs(wy) < dead) wy = 0f
+            yaw += wy * dt
+            pitch += wx * dt
             var x = -yaw
             var y = -pitch
             if (flipX) x = -x

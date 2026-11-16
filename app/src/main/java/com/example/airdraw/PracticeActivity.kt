@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.widget.CheckBox
 import android.widget.TextView
-import kotlin.math.roundToInt
 
 class PracticeActivity : Activity() {
 
@@ -68,36 +67,21 @@ class PracticeActivity : Activity() {
 
     private fun onRecorded(pts: List<PointF>) {
         pathView.setPath(pts)
-        if (Recognizer.isTooSmall(pts)) {
+        val v = GestureEngine.judge(pts)
+        if (!v.accepted) {
             result.setTextColor(Color.parseColor("#FF4466"))
-            result.text = "Too small"
-            detail.text = "Draw bigger and slower."
+            result.text = v.title
+            detail.text = v.detail
             return
         }
-        val symbols = Store.getSymbols()
-        val r = Recognizer.recognize(pts, symbols, Store.rotInv)
-        if (r == null) {
-            result.setTextColor(Color.parseColor("#FF4466"))
-            result.text = "No symbols"
-            detail.text = "Teach a symbol first."
-            return
+        result.setTextColor(Color.parseColor("#00FF88"))
+        result.text = v.title
+        var msg = v.detail
+        val sym = v.symbol
+        if (runBox.isChecked && sym != null) {
+            msg = msg + ". " + ActionRunner.run(this, sym.action)
         }
-        val pct = (r.score * 100).roundToInt()
-        val need = Store.threshold
-        if (pct >= need) {
-            result.setTextColor(Color.parseColor("#00FF88"))
-            result.text = r.name
-            var msg = "Score " + pct + "% (needs " + need + "%)"
-            if (runBox.isChecked) {
-                val sym = symbols.firstOrNull { it.name == r.name }
-                if (sym != null) msg = msg + ". " + ActionRunner.run(this, sym.action)
-            }
-            detail.text = msg
-        } else {
-            result.setTextColor(Color.parseColor("#FF4466"))
-            result.text = "No match"
-            detail.text = "Closest: " + r.name + " " + pct + "% (needs " + need + "%)"
-        }
+        detail.text = msg
     }
 
     override fun onPause() {

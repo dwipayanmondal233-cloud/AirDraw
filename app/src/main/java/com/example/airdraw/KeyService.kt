@@ -13,6 +13,8 @@ class KeyService : AccessibilityService() {
         var connected = false
     }
 
+    private var held = false
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         val info = serviceInfo
@@ -42,12 +44,16 @@ class KeyService : AccessibilityService() {
         val s = AirService.instance ?: return false
         if (!s.volumeEnabled()) return false
         if (event.action == KeyEvent.ACTION_DOWN) {
-            if (event.repeatCount == 0) s.volumeDown()
-            return true
+            if (event.repeatCount == 0) held = s.volumeDown()
+            return held
         }
         if (event.action == KeyEvent.ACTION_UP) {
-            s.volumeUp()
-            return true
+            if (held) {
+                held = false
+                s.volumeUp()
+                return true
+            }
+            return false
         }
         return false
     }

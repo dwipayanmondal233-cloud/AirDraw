@@ -56,6 +56,61 @@ object Store {
         get() = prefs.getBoolean("sounds", true)
         set(v) { prefs.edit().putBoolean("sounds", v).apply() }
 
+    var margin: Int
+        get() = prefs.getInt("margin", 6)
+        set(v) { prefs.edit().putInt("margin", v).apply() }
+
+    var minSize: Int
+        get() = prefs.getInt("minSize", 12)
+        set(v) { prefs.edit().putInt("minSize", v).apply() }
+
+    var cooldownMs: Int
+        get() = prefs.getInt("cooldownMs", 2000)
+        set(v) { prefs.edit().putInt("cooldownMs", v).apply() }
+
+    var shakeDelay: Int
+        get() = prefs.getInt("shakeDelay", 450)
+        set(v) { prefs.edit().putInt("shakeDelay", v).apply() }
+
+    var deadZone: Int
+        get() = prefs.getInt("deadZone", 15)
+        set(v) { prefs.edit().putInt("deadZone", v).apply() }
+
+    var callExtra: Int
+        get() = prefs.getInt("callExtra", 10)
+        set(v) { prefs.edit().putInt("callExtra", v).apply() }
+
+    var tilt: Int
+        get() = prefs.getInt("tilt", 10)
+        set(v) { prefs.edit().putInt("tilt", v).apply() }
+
+    var screenOnly: Boolean
+        get() = prefs.getBoolean("screenOnly", false)
+        set(v) { prefs.edit().putBoolean("screenOnly", v).apply() }
+
+    var calibrated: Boolean
+        get() = prefs.getBoolean("calibrated", false)
+        set(v) { prefs.edit().putBoolean("calibrated", v).apply() }
+
+    var bias0: Float
+        get() = prefs.getFloat("bias0", 0f)
+        set(v) { prefs.edit().putFloat("bias0", v).apply() }
+
+    var bias1: Float
+        get() = prefs.getFloat("bias1", 0f)
+        set(v) { prefs.edit().putFloat("bias1", v).apply() }
+
+    fun resetSettings() {
+        val e = prefs.edit()
+        val keys = listOf(
+            "threshold", "recordMs", "rotInv", "flipX", "flipY", "trigger", "shakeG",
+            "vibration", "sounds", "margin", "minSize", "cooldownMs", "shakeDelay",
+            "deadZone", "callExtra", "tilt", "screenOnly", "calibrated", "bias0", "bias1"
+        )
+        for (k in keys) e.remove(k)
+        e.apply()
+    }
+
     var flipY: Boolean
         get() = prefs.getBoolean("flipY", false)
         set(v) { prefs.edit().putBoolean("flipY", v).apply() }
