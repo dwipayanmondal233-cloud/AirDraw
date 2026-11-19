@@ -121,7 +121,7 @@ class SettingsActivity : Activity() {
             )
         }
         btn("Battery settings", "#444466") {
-            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS_SETTINGS))
+            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
         btn("Reset all settings to default", "#AA2244") {
             AlertDialog.Builder(this)
