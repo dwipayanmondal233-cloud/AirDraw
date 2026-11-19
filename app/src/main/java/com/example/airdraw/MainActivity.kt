@@ -115,14 +115,10 @@ class MainActivity : Activity() {
     }
 
     private fun updateStatus() {
-        val trig = when (Store.trigger) {
-            "volume" -> "Hold Volume Down"
-            "both" -> "Shake or Volume Down"
-            else -> "Shake"
-        }
         val svc = if (AirService.running) "running" else "off"
         val acc = if (KeyService.connected) "on" else "off"
-        status.text = "Service: " + svc + "  |  Trigger: " + trig + "  |  Accessibility: " + acc +
+        status.text = "Service: " + svc + "  |  Trigger: " + Store.triggerLabel() +
+            "  |  Accessibility: " + acc +
             "\nPermissions: " + Perms.summary(this) + " ready (tap to check)"
     }
 
@@ -165,12 +161,16 @@ class MainActivity : Activity() {
         val symbols = Store.getSymbols()
         if (symbols.isEmpty()) {
             listBox.addView(
-                Ui.text(this, "No symbols yet. Tap Teach new symbol.", 14f, Ui.GRAY),
+                Ui.text(
+                    this,
+                    "No symbols yet. Tap Teach new symbol.\nLost them after an update? Settings, Backup & restore.",
+                    14f, Ui.GRAY
+                ),
                 Ui.params(this, Ui.WRAP, 20)
             )
             return
         }
-        for (s in symbols) {
+        for ((index, s) in symbols.withIndex()) {
             val card = LinearLayout(this)
             card.orientation = LinearLayout.VERTICAL
             card.setBackgroundColor(Color.parseColor("#14142A"))
@@ -221,6 +221,16 @@ class MainActivity : Activity() {
             card.addView(btnRow, Ui.params(this, Ui.WRAP, 8))
 
             listBox.addView(card, Ui.params(this, Ui.WRAP, 8))
+
+            // cards ease in one after another
+            card.alpha = 0f
+            card.translationY = Ui.dp(this, 16).toFloat()
+            card.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(index * 50L)
+                .setDuration(240)
+                .start()
         }
     }
 

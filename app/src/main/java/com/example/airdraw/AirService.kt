@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import kotlin.math.sqrt
 
@@ -49,14 +50,27 @@ class AirService : Service(), SensorEventListener {
     private var accel: Sensor? = null
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var recorder: GestureRecorder
+    private val tap = TapDetector()
+
+    private var shakeOn = false
+    private var tapOn = false
+    private var volumeOn = false
 
     private var busy = false
     private var volumeMode = false
     private var recStartedAt = 0L
+    private var lastDoneAt = 0L
 
     private var spikes = 0
     private var firstSpike = 0L
     private var lastSpike = 0L
+    private var warmup = 0
+    private var gx = 0f
+    private var gy = 0f
+    private var gz = 0f
+    private var pLx = 0f
+    private var pLy = 0f
+    private var pLz = 0f
 
     private val startRec = Runnable {
         if (!recorder.available) {
@@ -108,17 +122,19 @@ class AirService : Service(), SensorEventListener {
 
     private fun applyTrigger() {
         sm.unregisterListener(this)
-        val t = Store.trigger
+        shakeOn = Store.hasTrigger("shake")
+        tapOn = Store.hasTrigger("tap")
+        volumeOn = Store.hasTrigger("volume")
+        tap.threshold = Store.tapThreshold()
+        tap.reset()
         val a = accel
-        if ((t == "shake" || t == "both") && a != null) {
-            sm.registerListener(this, a, SensorManager.SENSOR_DELAY_GAME)
+        if ((shakeOn || tapOn) && a != null) {
+            val rate = if (tapOn) 10000 else SensorManager.SENSOR_DELAY_GAME
+            sm.registerListener(this, a, rate)
         }
     }
 
-    fun volumeEnabled(): Boolean {
-        val t = Store.trigger
-        return t == "volume" || t == "both"
-    }
+    fun volumeEnabled(): Boolean = volumeOn
 
     private fun buildNotification(text: String): Notification {
         val pi = PendingIntent.getActivity(
@@ -141,42 +157,89 @@ class AirService : Service(), SensorEventListener {
     private fun finishGesture(pts: List<PointF>) {
         val msg = GestureEngine.process(this, pts)
         busy = false
+        lastDoneAt = SystemClock.elapsedRealtime()
         updateNote(msg)
     }
 
-    // ---- Shake trigger ----
+    // Is a new gesture allowed right now?
+    private fun allowed(): Boolean {
+        if (busy) return false
+        if (SystemClock.elapsedRealtime() - lastDoneAt < Store.cooldownMs) return false
+        if (Store.screenOnly) {
+            val pm = getSystemService(PowerManager::class.java)
+            if (!pm.isInteractive) return false
+        }
+        return true
+    }
+
+    // ---- Shake and back double-tap triggers ----
     override fun onSensorChanged(e: SensorEvent) {
+        val x = e.values[0]
+        val y = e.values[1]
+        val z = e.values[2]
+
+        // the tap detector always sees every reading, so it never sees a fake jump
+        var tapResult = 0
+        if (tapOn) tapResult = tap.feed(x, y, z, e.timestamp)
+
+        // slow average = gravity, the rest = real movement
+        gx = 0.85f * gx + 0.15f * x
+        gy = 0.85f * gy + 0.15f * y
+        gz = 0.85f * gz + 0.15f * z
+        if (warmup < 25) {
+            warmup++
+            return
+        }
         if (busy) return
-        val g = sqrt(
-            e.values[0] * e.values[0] + e.values[1] * e.values[1] + e.values[2] * e.values[2]
-        ) / SensorManager.GRAVITY_EARTH
-        if (g < Store.shakeG / 10f) return
+
+        if (tapResult == 2) {
+            onTrigger()
+            return
+        }
+        if (!shakeOn) return
+
+        val total = sqrt(x * x + y * y + z * z) / SensorManager.GRAVITY_EARTH
+        if (total < Store.shakeG / 10f) return
+
         val now = SystemClock.elapsedRealtime()
         if (now - lastSpike < 120) return
-        lastSpike = now
-        if (now - firstSpike > 900) {
-            firstSpike = now
+
+        val lx = x - gx
+        val ly = y - gy
+        val lz = z - gz
+
+        if (spikes > 0 && now - firstSpike <= 900) {
+            // a real shake goes back and forth, so each hit must point the other way
+            val dot = lx * pLx + ly * pLy + lz * pLz
+            if (dot >= 0f) return
+        } else {
             spikes = 0
+            firstSpike = now
         }
+
+        lastSpike = now
+        pLx = lx
+        pLy = ly
+        pLz = lz
         spikes++
         if (spikes >= 3) {
             spikes = 0
-            onShake()
+            onTrigger()
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun onShake() {
-        if (busy) return
+    private fun onTrigger() {
+        if (!allowed()) return
         busy = true
         Feedback.start(this)
-        handler.postDelayed(startRec, 450)
+        handler.postDelayed(startRec, Store.shakeDelay.toLong())
     }
 
     // ---- Volume trigger (called by KeyService) ----
     fun volumeDown(): Boolean {
-        if (busy) return false
+        if (!allowed()) return false
         busy = true
         volumeMode = true
         Feedback.start(this)

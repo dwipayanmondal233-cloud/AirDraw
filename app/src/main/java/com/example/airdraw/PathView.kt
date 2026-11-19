@@ -19,6 +19,7 @@ class PathView(context: Context) : View(context) {
 
     private var pts: List<PointF> = emptyList()
     private var progress = 1f
+    private var live = false
     private var twinkle = 0f
     private var anim: ValueAnimator? = null
     private var twAnim: ValueAnimator? = null
@@ -89,7 +90,9 @@ class PathView(context: Context) : View(context) {
         strokeWidth = 3f
     }
 
+    // Final path: fits the view and draws itself with an animation.
     fun setPath(points: List<PointF>) {
+        live = false
         pts = points.toList()
         anim?.cancel()
         if (pts.size < 2) {
@@ -106,6 +109,15 @@ class PathView(context: Context) : View(context) {
         }
         a.start()
         anim = a
+    }
+
+    // Live trail while you move. The scale stays fixed so it does not jump.
+    fun setLive(points: List<PointF>) {
+        anim?.cancel()
+        live = true
+        progress = 1f
+        pts = points
+        invalidate()
     }
 
     override fun onAttachedToWindow() {
@@ -140,24 +152,32 @@ class PathView(context: Context) : View(context) {
 
         if (pts.size < 2) return
 
-        var minX = pts[0].x
-        var maxX = pts[0].x
-        var minY = pts[0].y
-        var maxY = pts[0].y
-        for (p in pts) {
-            minX = min(minX, p.x)
-            maxX = max(maxX, p.x)
-            minY = min(minY, p.y)
-            maxY = max(maxY, p.y)
+        val sc: Float
+        val ox: Float
+        val oy: Float
+        if (live) {
+            sc = min(width, height) / 1.2f
+            ox = width / 2f
+            oy = height / 2f
+        } else {
+            var minX = pts[0].x
+            var maxX = pts[0].x
+            var minY = pts[0].y
+            var maxY = pts[0].y
+            for (p in pts) {
+                minX = min(minX, p.x)
+                maxX = max(maxX, p.x)
+                minY = min(minY, p.y)
+                maxY = max(maxY, p.y)
+            }
+            val pad = 50f
+            val areaW = width - 2 * pad
+            val areaH = height - 2 * pad
+            val range = max(max(maxX - minX, maxY - minY), 0.1f)
+            sc = min(areaW, areaH) / range
+            ox = pad + (areaW - (maxX - minX) * sc) / 2f - minX * sc
+            oy = pad + (areaH - (maxY - minY) * sc) / 2f - minY * sc
         }
-
-        val pad = 50f
-        val areaW = width - 2 * pad
-        val areaH = height - 2 * pad
-        val range = max(max(maxX - minX, maxY - minY), 0.1f)
-        val scale = min(areaW, areaH) / range
-        val offX = pad + (areaW - (maxX - minX) * scale) / 2f
-        val offY = pad + (areaH - (maxY - minY) * scale) / 2f
 
         val count = max(2, (progress * (pts.size - 1)).toInt() + 1).coerceAtMost(pts.size)
 
@@ -167,8 +187,8 @@ class PathView(context: Context) : View(context) {
         var lastX = 0f
         var lastY = 0f
         for (i in 0 until count) {
-            val x = offX + (pts[i].x - minX) * scale
-            val y = offY + (pts[i].y - minY) * scale
+            val x = ox + pts[i].x * sc
+            val y = oy + pts[i].y * sc
             if (i == 0) {
                 path.moveTo(x, y)
                 firstX = x
@@ -183,7 +203,7 @@ class PathView(context: Context) : View(context) {
         canvas.drawPath(path, glow)
         canvas.drawPath(path, line)
         canvas.drawCircle(firstX, firstY, 14f, startPaint)
-        if (progress < 1f) {
+        if (live || progress < 1f) {
             canvas.drawCircle(lastX, lastY, 26f, headGlow)
             canvas.drawCircle(lastX, lastY, 10f, headPaint)
         } else {

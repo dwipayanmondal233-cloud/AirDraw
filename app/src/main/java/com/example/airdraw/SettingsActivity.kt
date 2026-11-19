@@ -7,11 +7,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
 import android.widget.CheckBox
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -29,38 +26,34 @@ class SettingsActivity : Activity() {
         root = Ui.root(this)
         root.addView(Ui.text(this, "Settings", 26f, Ui.CYAN))
 
-        // ---------- Trigger ----------
-        header("Trigger")
-        val trTypes = listOf("shake", "volume", "both")
-        val trNames = listOf(
-            "Shake the phone 3 times",
-            "Hold Volume Down (needs Accessibility)",
-            "Both"
-        )
-        val trIds = ArrayList<Int>()
-        val trGroup = RadioGroup(this)
-        for (i in trTypes.indices) {
-            val rb = RadioButton(this)
-            rb.text = trNames[i]
-            rb.setTextColor(Color.WHITE)
-            rb.id = View.generateViewId()
-            trIds.add(rb.id)
-            trGroup.addView(rb)
+        // ---------- Triggers ----------
+        header("Triggers")
+        check("Shake the phone 3 times", Store.hasTrigger("shake")) {
+            Store.setTrigger("shake", it)
+            AirService.refresh(this)
         }
-        trGroup.check(trIds[trTypes.indexOf(Store.trigger).coerceAtLeast(0)])
-        trGroup.setOnCheckedChangeListener { _, id ->
-            val i = trIds.indexOf(id)
-            if (i >= 0) {
-                Store.trigger = trTypes[i]
-                AirService.refresh(this)
-            }
+        check("Hold Volume Down (needs Accessibility)", Store.hasTrigger("volume")) {
+            Store.setTrigger("volume", it)
+            AirService.refresh(this)
         }
-        root.addView(trGroup, Ui.params(this, Ui.WRAP, 4))
+        check("Double-tap the back of the phone (uses more battery)", Store.hasTrigger("tap")) {
+            Store.setTrigger("tap", it)
+            AirService.refresh(this)
+        }
+        note("Pick one or more. Nothing ticked means nothing starts a gesture.")
 
         seek(15, 40, 1, Store.shakeG,
             { "Shake strength: " + (it / 10.0) + " g (lower = easier)" }) { Store.shakeG = it }
+        seek(1, 10, 1, Store.tapLevel,
+            { "Back-tap sensitivity: " + it + " of 10 (higher = easier)" }) {
+            Store.tapLevel = it
+            AirService.refresh(this)
+        }
+        btn("Test back double-tap", "#7B2FFF") {
+            startActivity(Intent(this, TapTestActivity::class.java))
+        }
         seek(200, 1000, 50, Store.shakeDelay,
-            { "Pause after the shake buzz: " + (it / 1000.0) + " s" }) { Store.shakeDelay = it }
+            { "Pause after the trigger buzz: " + (it / 1000.0) + " s" }) { Store.shakeDelay = it }
         seek(0, 6000, 250, Store.cooldownMs,
             { "Cooldown between gestures: " + (it / 1000.0) + " s" }) { Store.cooldownMs = it }
         check("Only run when the screen is on (stops pocket triggers)", Store.screenOnly) {
@@ -113,6 +106,9 @@ class SettingsActivity : Activity() {
 
         // ---------- System ----------
         header("System")
+        btn("Backup & restore symbols", "#0A8F6A") {
+            startActivity(Intent(this, BackupActivity::class.java))
+        }
         btn("Accessibility settings", "#444466") {
             open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
@@ -125,14 +121,14 @@ class SettingsActivity : Activity() {
             )
         }
         btn("Battery settings", "#444466") {
-            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS_SETTINGS))
         }
         btn("Reset all settings to default", "#AA2244") {
             AlertDialog.Builder(this)
                 .setTitle("Reset all settings?")
                 .setMessage("Your symbols are kept. Only settings and calibration are reset.")
                 .setPositiveButton("Reset") { _, _ ->
-                    Store.resetSettings()
+                    Store.resetAll()
                     AirService.refresh(this)
                     recreate()
                 }

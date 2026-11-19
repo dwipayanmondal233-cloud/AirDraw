@@ -21,7 +21,8 @@ class PracticeActivity : Activity() {
         Store.init(this)
         ActionRunner.init(this)
 
-        recorder = GestureRecorder(this) { pts, _ -> onRecorded(pts) }
+         recorder = GestureRecorder(this) { pts, _ -> onRecorded(pts) }
+        recorder.onLive = { pathView.setLive(it) }
 
         val root = Ui.root(this)
         root.addView(Ui.text(this, "Practice", 26f, Ui.CYAN))

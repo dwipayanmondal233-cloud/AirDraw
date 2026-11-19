@@ -24,13 +24,19 @@ class GestureRecorder(
 
     private var yaw = 0f
     private var pitch = 0f
+    private var prevWx = 0f
+    private var prevWy = 0f
     private var lastTs = 0L
     private var startMs = 0L
+    private var lastLiveMs = 0L
     private var flipX = false
     private var flipY = false
     private var bias0 = 0f
     private var bias1 = 0f
     private var dead = 0f
+
+    // called about 30 times a second while recording, to draw the trail live
+    var onLive: ((List<PointF>) -> Unit)? = null
 
     var isRecording = false
         private set
@@ -44,7 +50,10 @@ class GestureRecorder(
         points.clear()
         yaw = 0f
         pitch = 0f
+        prevWx = 0f
+        prevWy = 0f
         lastTs = 0L
+        lastLiveMs = 0L
         flipX = Store.flipX
         flipY = Store.flipY
         bias0 = if (Store.calibrated) Store.bias0 else 0f
@@ -53,7 +62,8 @@ class GestureRecorder(
         startMs = SystemClock.elapsedRealtime()
         points.add(PointF(0f, 0f))
         isRecording = true
-        sm.registerListener(this, g, SensorManager.SENSOR_DELAY_GAME)
+        // 100 readings per second gives a smoother path
+        sm.registerListener(this, g, 10000)
         handler.postDelayed(stopRunnable, Store.recordMs.toLong())
     }
 
@@ -75,21 +85,34 @@ class GestureRecorder(
 
     override fun onSensorChanged(e: SensorEvent) {
         if (!isRecording) return
+        var wx = e.values[0] - bias0
+        var wy = e.values[1] - bias1
+        if (abs(wx) < dead) wx = 0f
+        if (abs(wy) < dead) wy = 0f
+
         if (lastTs != 0L) {
             val dt = (e.timestamp - lastTs) * 1e-9f
-            var wx = e.values[0] - bias0
-            var wy = e.values[1] - bias1
-            if (abs(wx) < dead) wx = 0f
-            if (abs(wy) < dead) wy = 0f
-            yaw += wy * dt
-            pitch += wx * dt
+            // trapezoid rule: average of the old and new speed
+            yaw += 0.5f * (prevWy + wy) * dt
+            pitch += 0.5f * (prevWx + wx) * dt
             var x = -yaw
             var y = -pitch
             if (flipX) x = -x
             if (flipY) y = -y
             points.add(PointF(x, y))
+
+            val cb = onLive
+            if (cb != null) {
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastLiveMs >= 33) {
+                    lastLiveMs = now
+                    cb(ArrayList(points))
+                }
+            }
         }
         lastTs = e.timestamp
+        prevWx = wx
+        prevWy = wy
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}

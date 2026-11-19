@@ -63,6 +63,16 @@
             android:screenOrientation="portrait" />
 
         <activity
+            android:name=".TapTestActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".BackupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ActionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

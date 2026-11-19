@@ -176,6 +176,143 @@ object Store {
         prefs.edit().remove("log").apply()
     }
 
+    private val settingKeys = listOf(
+        "threshold", "recordMs", "rotInv", "flipX", "flipY", "trigger", "shakeG",
+        "vibration", "sounds", "margin", "minSize", "cooldownMs", "shakeDelay",
+        "deadZone", "callExtra", "tilt", "screenOnly", "calibrated", "bias0", "bias1",
+        "tapLevel"
+    )
+
+    var tapLevel: Int
+        get() = prefs.getInt("tapLevel", 5)
+        set(v) { prefs.edit().putInt("tapLevel", v).apply() }
+
+    // jerk needed for a back tap. Higher level = easier.
+    fun tapThreshold(): Float = 1100f - 90f * tapLevel
+
+    fun hasTrigger(t: String): Boolean {
+        val v = trigger
+        if (v == "both") return t == "shake" || t == "volume"
+        return v.split(",").contains(t)
+    }
+
+    fun setTrigger(t: String, on: Boolean) {
+        val cur = ArrayList<String>()
+        for (x in listOf("shake", "volume", "tap")) {
+            if (hasTrigger(x)) cur.add(x)
+        }
+        cur.remove(t)
+        if (on) cur.add(t)
+        trigger = cur.joinToString(",")
+    }
+
+    fun triggerLabel(): String {
+        val names = ArrayList<String>()
+        if (hasTrigger("shake")) names.add("Shake")
+        if (hasTrigger("volume")) names.add("Volume Down")
+        if (hasTrigger("tap")) names.add("Back double-tap")
+        return if (names.isEmpty()) "None" else names.joinToString(" + ")
+    }
+
+    fun resetAll() {
+        resetSettings()
+        prefs.edit().remove("tapLevel").apply()
+    }
+
+    private fun parseSymbols(arr: JSONArray): List<Symbol> {
+        val out = ArrayList<Symbol>()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val sj = o.getJSONArray("samples")
+            val samples = ArrayList<List<PointF>>()
+            for (j in 0 until sj.length()) {
+                val pj = sj.getJSONArray(j)
+                val pts = ArrayList<PointF>()
+                for (k in 0 until pj.length()) {
+                    val p = pj.getJSONArray(k)
+                    pts.add(PointF(p.getDouble(0).toFloat(), p.getDouble(1).toFloat()))
+                }
+                samples.add(pts)
+            }
+            val aj = o.optJSONObject("action")
+            val action = if (aj != null) {
+                ActionDef(
+                    aj.optString("type", "none"),
+                    aj.optString("data", ""),
+                    aj.optString("label", "No action")
+                )
+            } else {
+                ActionDef("none", "", "No action")
+            }
+            out.add(Symbol(o.getString("name"), samples, action))
+        }
+        return out
+    }
+
+    fun exportJson(withSettings: Boolean): String {
+        val o = JSONObject()
+        o.put("app", "airdraw")
+        o.put("version", 1)
+        val syms = try {
+            JSONArray(prefs.getString("symbols", "[]"))
+        } catch (e: Exception) {
+            JSONArray()
+        }
+        o.put("symbols", syms)
+        if (withSettings) {
+            val st = JSONObject()
+            for (k in settingKeys) {
+                val v = prefs.all[k]
+                if (v != null) st.put(k, v)
+            }
+            o.put("settings", st)
+        }
+        return o.toString()
+    }
+
+    // returns null when it worked, or an error message
+    fun importJson(text: String, withSettings: Boolean): String? {
+        try {
+            val o = JSONObject(text)
+            if (o.optString("app") != "airdraw") return "This is not an AirDraw backup."
+            val incoming = parseSymbols(o.getJSONArray("symbols"))
+            val names = HashSet<String>()
+            for (s in incoming) names.add(s.name)
+            val merged = ArrayList<Symbol>()
+            for (s in getSymbols()) {
+                if (!names.contains(s.name)) merged.add(s)
+            }
+            merged.addAll(incoming)
+            saveAll(merged)
+
+            if (withSettings && o.has("settings")) {
+                val st = o.getJSONObject("settings")
+                val e = prefs.edit()
+                val keys = st.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    if (!settingKeys.contains(k)) continue
+                    val v = st.get(k)
+                    if (v is Boolean) {
+                        e.putBoolean(k, v)
+                    } else if (v is String) {
+                        e.putString(k, v)
+                    } else if (v is Number) {
+                        if (k == "bias0" || k == "bias1") {
+                            e.putFloat(k, v.toFloat())
+                        } else {
+                            e.putInt(k, v.toInt())
+                        }
+                    }
+                }
+                e.apply()
+            }
+            return null
+        } catch (ex: Exception) {
+            return "Could not read that file."
+        }
+    }
+
     var flipY: Boolean
         get() = prefs.getBoolean("flipY", false)
         set(v) { prefs.edit().putBoolean("flipY", v).apply() }

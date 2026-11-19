@@ -1,5 +1,8 @@
 package com.example.airdraw
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.StateListAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -65,7 +68,24 @@ object Ui {
         b.isAllCaps = false
         b.setTextColor(Color.WHITE)
         b.background = ripple
-        b.stateListAnimator = null
+
+        // small "press in" animation
+        val pressed = AnimatorSet()
+        pressed.playTogether(
+            ObjectAnimator.ofFloat(b, "scaleX", 0.96f),
+            ObjectAnimator.ofFloat(b, "scaleY", 0.96f)
+        )
+        pressed.duration = 80
+        val normal = AnimatorSet()
+        normal.playTogether(
+            ObjectAnimator.ofFloat(b, "scaleX", 1f),
+            ObjectAnimator.ofFloat(b, "scaleY", 1f)
+        )
+        normal.duration = 120
+        val sla = StateListAnimator()
+        sla.addState(intArrayOf(android.R.attr.state_pressed), pressed)
+        sla.addState(intArrayOf(), normal)
+        b.stateListAnimator = sla
         return b
     }
 

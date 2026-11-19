@@ -47,7 +47,7 @@ class PermissionsActivity : Activity() {
         summary.text = Perms.summary(this) + " ready" +
             (if (denied) "\nPermission denied. Use App info at the bottom." else "")
 
-        val volume = Store.trigger == "volume" || Store.trigger == "both"
+        val volume = Store.hasTrigger("volume")
         val symbols = Store.getSymbols()
         val usesCall = symbols.any { it.action.type == "call" }
         val usesFlash = symbols.any { it.action.type == "flashlight" }
